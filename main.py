@@ -1,110 +1,83 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QSlider, QLabel
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSlider, QLabel, QFileDialog
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5. QtCore import Qt, QUrl
 
-class VideoPlayer(QMainWindow):
+class VideoPlayer(QWidget):
     def __init__(self):
         super().__init__()
 
-        # Initialize media player
-        self.media_player = QMediaPlayer(self)
-        self.media_player.setVolume(50)
+        self.setWindowTitle("Video Player")
+        self.setGeometry(600, 100, 800, 600)
+        self.setStyleSheet("background-color: black;")
 
-        # Initialize buttons
-        self.play_button = QPushButton('Play', self)
-        self.pause_button = QPushButton('Pause', self)
-        self.stop_button = QPushButton('Stop', self)
-        self.forward_button = QPushButton('Forward', self)
-        self.backward_button = QPushButton('Backward', self)
+        self.mediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
+        self.videoWidget = QVideoWidget()
 
-        # Initialize slider for video position
-        self.position_slider = QSlider(Qt.Horizontal, self)
-        self.position_slider.setRange(0, 0)
+        layout = QVBoxLayout()
+        layout.addWidget(self.videoWidget)
 
-        # Initialize label for video duration
-        self.duration_label = QLabel('00:00', self)
+        controlLayout = QHBoxLayout()
 
-        # Set button positions
-        self.play_button.move(10, 10)
-        self.pause_button.move(80, 10)
-        self.stop_button.move(150, 10)
-        self.forward_button.move(220, 10)
-        self.backward_button.move(290, 10)
-        self.position_slider.move(10, 50)
-        self.duration_label.move(310, 50)
+        self.openButton = QPushButton("Открыть видео")
+        self.openButton.clicked.connect(self.openVideo)
+        self.openButton.setStyleSheet("background-color: #404040; color: white; border: 50px solid black; border-radius: 10px; padding: 8px;")
+        controlLayout.addWidget(self.openButton)
 
-        # Connect button signals
-        self.play_button.clicked.connect(self.play_video)
-        self.pause_button.clicked.connect(self.pause_video)
-        self.stop_button.clicked.connect(self.stop_video)
-        self.forward_button.clicked.connect(self.forward_video)
-        self.backward_button.clicked.connect(self.backward_video)
+        self.rewindButton = QPushButton("◀️")
+        self.rewindButton.clicked.connect(self.rewind)
+        self.rewindButton.setStyleSheet("background-color: #404040; color: white; border: 1px solid black; border-radius: 10px; padding: 8px;")
+        controlLayout.addWidget(self.rewindButton)
 
-        # Connect position slider signal
-        self.media_player.positionChanged.connect(self.set_position)
+        self.playButton = QPushButton("Video Player")
+        self.playButton.clicked.connect(self.playPauseVideo)
+        self.playButton.setStyleSheet("background-color: #404040; color: white; border: 1px solid black; border-radius: 10px; padding: 10px;")
+        controlLayout.addWidget(self.playButton)
 
-        # Connect duration change signal
-        self.media_player.durationChanged.connect(self.set_duration)
+        self.fastForwardButton = QPushButton("▶️")
+        self.fastForwardButton.clicked.connect(self.fastForward)
+        self.fastForwardButton.setStyleSheet("background-color: #404040; color: white; border: 1px solid black; border-radius: 10px; padding: 8px;")
+        controlLayout.addWidget(self.fastForwardButton)
 
-        # Initialize timer for forward/backward buttons
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.media_player.play)
+        layout.addLayout(controlLayout)
+        self.setLayout(layout)
 
-        # Set window title and size
-        self.setWindowTitle('Video Player')
-        self.setGeometry(100, 100, 400, 300)
+        self.mediaPlayer.setVideoOutput(self.videoWidget)
+        self.videoWidget.mousePressEvent = self.playPauseVideo
+        self.mediaPlayer.stateChanged.connect(self.updatePlayButton)
 
-    def open_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, 'Open Video File', '', 'Video Files (*.mp4 *.avi *.mov)')
-        if file_name:
-            self.media_player.setMedia(QMediaContent(file_name))
-            self.media_player.play()
+    def openVideo(self):
+        fileName, _ = QFileDialog.getOpenFileName(self, "Open Video File")
+        if fileName:
+            self.mediaPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(fileName)))
+            self.mediaPlayer.play()
 
-    def play_video(self):
-        if self.media_player.state() == QMediaPlayer.PlayingState:
-            self.pause_video()
-        elif self.media_player.state() == QMediaPlayer.PausedState:
-            self.media_player.play()
+    def playPauseVideo(self, event=None):
+       if self.mediaPlayer.state() == QMediaPlayer.PlayingState:
+        self.mediaPlayer.pause()
+       else:
+        self.mediaPlayer.play()
+
+    def stopVideo(self):
+        self.mediaPlayer.stop()
+
+    def fastForward(self):
+        self.mediaPlayer.setPosition(self.mediaPlayer.position() + 10000)
+
+    def rewind(self):
+        self.mediaPlayer.setPosition(self.mediaPlayer.position() - 10000)
+
+    def setVolume(self, value):
+        self.mediaPlayer.setVolume(value)
+
+    def updatePlayButton(self, state):
+        if state == QMediaPlayer.PlayingState:
+            self.playButton.setText("⏸")
         else:
-            self.open_file()
-
-    def pause_video(self):
-        if self.media_player.state() == QMediaPlayer.PlayingState:
-            self.media_player.pause()
-
-    def stop_video(self):
-        self.media_player.stop()
-
-    def forward_video(self):
-        position = self.media_player.position()
-        duration = self.media_player.duration()
-        if position + 5000 < duration:
-            position += 5000
-            self.media_player.setPosition(position)
-            self.timer.start(5000)
-
-    def backward_video(self):
-        position = self.media_player.position()
-        if position > 5000:
-            position -= 5000
-            self.media_player.setPosition(position)
-            self.timer.start(5000)
-        else:
-            self.media_player.setPosition(0)
-
-    def set_position(self, position):
-        self.position_slider.setValue(position)
-
-    def set_duration(self, duration):
-        self.position_slider.setRange(0, duration)
-        self.duration_label.setText(self.format_time(duration))
-
-    def format_time(self, time):
-        minutes, seconds = divmod(time / 1000, 60)
-        return '{:02d}:{:02d}'.format(int(minutes), int(seconds))
+            self.playButton.setText("ᐅ")
 
 if __name__ == '__main__':
+    import sys
     app = QApplication(sys.argv)
     player = VideoPlayer()
     player.show()
